@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import os
 import struct
 import subprocess
 import sys
@@ -623,54 +624,67 @@ def cmd_capture() -> int:
     """Capture a screen region and save to collection."""
     MEME_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = int(time.time())
-    filepath = MEME_DIR / f"meme_{timestamp}.png"
+    final_path = MEME_DIR / f"meme_{timestamp}.png"
+
+    # Write to temp — never directly to final path.  If capture fails
+    # partway, the temp is cleaned up and no 0-byte orphan pollutes
+    # the collection.
+    fd, tmp_str = tempfile.mkstemp(suffix=".png", dir=str(MEME_DIR))
+    os.close(fd)
+    tmp = Path(tmp_str)
+
+    try:
+        ok = _capture_to(tmp)
+
+        if ok and tmp.exists() and tmp.stat().st_size > 0:
+            tmp.rename(final_path)
+        elif ok is None:  # user cancelled
+            return 0
+        else:
+            _notify("Meme Collection", "Capture failed")
+            return 1
+    finally:
+        tmp.unlink(missing_ok=True)
+
+    _copy_image(final_path)
+    _notify("Meme Collection", f"Captured: {final_path.name}", icon=final_path)
+
+    _upload_if_remote(final_path)
+    return 0
+
+
+def _capture_to(path: Path) -> bool | None:
+    """Capture to *path*.  Returns True=ok, None=cancelled, False=error."""
     platform = _platform()
 
     if platform == "linux":
-        try:
-            region = subprocess.run(
-                ["slurp"], capture_output=True, text=True, check=True
+        # ── slurp + grim (interactive region, Wayland) ──
+        if _tool_available("slurp") and _tool_available("grim"):
+            region = subprocess.run(["slurp"], capture_output=True, text=True)
+            if region.returncode != 0:
+                return None  # user cancelled
+
+            result = subprocess.run(
+                ["grim", "-g", region.stdout.strip()],
+                stdout=path.open("wb"),
             )
-            with filepath.open("wb") as f:
-                subprocess.run(["grim", "-g", region.stdout.strip()], stdout=f, check=True)
-        except (FileNotFoundError, subprocess.CalledProcessError):
-            filepath.unlink(missing_ok=True)
-            if not _capture_mss(filepath):
-                print("Install slurp+grim or: pip install mss", file=sys.stderr)
-                return 1
+            return result.returncode == 0
+
+        # ── mss fallback (full screen) ──
+        return _capture_mss(path)
 
     elif platform == "macos":
-        try:
-            subprocess.run(["screencapture", "-i", str(filepath)], check=True)
-            if not filepath.exists():
-                _notify("Meme Collection", "Capture cancelled")
-                return 0
-        except FileNotFoundError:
-            if not _capture_mss(filepath):
-                print("Install screencapture or: pip install mss", file=sys.stderr)
-                return 1
+        if _tool_available("screencapture"):
+            result = subprocess.run(["screencapture", "-i", str(path)])
+            if result.returncode != 0:
+                return None
+            if path.exists() and path.stat().st_size > 0:
+                return True
+            return None  # exit 0 but no file = cancelled
+        return _capture_mss(path)
 
-    elif platform == "windows":
-        if not _capture_mss(filepath):
-            print("pip install mss for screen capture on Windows", file=sys.stderr)
-            return 1
-    else:
-        if not _capture_mss(filepath):
-            print(f"Unsupported platform: {platform}", file=sys.stderr)
-            return 1
-
-    if not filepath.exists() or filepath.stat().st_size == 0:
-        filepath.unlink(missing_ok=True)
-        _notify("Meme Collection", "Capture failed (empty file)")
-        return 1
-
-    _copy_image(filepath)
-    _notify("Meme Collection", f"Captured: {filepath.name}", icon=filepath)
-
-    # Upload to server if configured
-    _upload_if_remote(filepath)
-
-    return 0
+    # Windows and unknown — try mss
+    return _capture_mss(path)
 
 
 def _capture_mss(filepath: Path) -> bool:
@@ -678,7 +692,7 @@ def _capture_mss(filepath: Path) -> bool:
         import mss  # type: ignore[import-untyped]
         with mss.mss() as sct:
             sct.shot(output=str(filepath))
-        return True
+        return filepath.exists() and filepath.stat().st_size > 0
     except Exception:
         return False
 
