@@ -498,16 +498,20 @@ def cmd_pick() -> int:
             preview = (
                 "mkdir -p /tmp/meme-cache; "
                 f"cache='/tmp/meme-cache/{{2}}'; "
-                f"[ -f \"$cache\" ] || curl -s -o \"$cache\" "
-                f"'{server_url}/api/memes/'{{2}}; "
+                f"url=\"{server_url}/api/memes/{{2}}\"; "
+                f"[ -f \"$cache\" -a -s \"$cache\" ] || "
+                f"curl -sS -o \"$cache\" \"$url\" 2>/tmp/meme-cache/.err; "
+                f"if [ -s \"$cache\" ]; then "
                 f"chafa --symbols=block --fill=block --scale max --align=mid,mid "
                 f"--size=${{FZF_PREVIEW_COLUMNS}}x$(( ${{FZF_PREVIEW_LINES}} - 2 )) "
                 f"\"$cache\" 2>/dev/null; "
-                f"echo '  {{2}}'"
+                f"else echo '  {{2}} (download failed)'; "
+                f"fi"
             )
         else:
             preview = (
-                f"echo '  {{2}}' && echo && echo 'Select to download and open'"
+                f"curl -sS -o /dev/null \"{server_url}/api/memes/{{2}}\" "
+                f"2>/dev/null && echo '  {{2}}' || echo '  {{2}} (not found)'"
             )
 
         fzf = subprocess.Popen(
