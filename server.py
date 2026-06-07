@@ -86,11 +86,17 @@ class MemeHandler(BaseHTTPRequestHandler):
         for f in sorted(MEMES_DIR.iterdir(),
                         key=lambda p: p.stat().st_mtime, reverse=True):
             if f.suffix.lower() == ".png" and f.is_file():
+                name = f.stem
+                display = name
+                ts = None
+                if name.startswith("meme_") and name[5:].isdigit():
+                    ts = int(name[5:])
+                    display = datetime.fromtimestamp(ts).strftime("%b %d %H:%M")
                 memes.append({
                     "filename": f.name,
                     "size": f.stat().st_size,
                     "modified": f.stat().st_mtime,
-                    "display": datetime.fromtimestamp(f.stat().st_mtime).strftime("%b %d %H:%M"),
+                    "display": display,
                 })
         return memes
 

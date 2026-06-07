@@ -519,7 +519,7 @@ def cmd_pick() -> int:
                 "--preview-window", "right:60%:border-rounded",
                 "--layout=reverse",
                 "--border=rounded",
-                "--header", "  MEME COLLECTION (server)  ",
+                "--header", "  MEME COLLECTION  ",
                 "--prompt", "▸ ",
                 "--color", color,
                 "--height=100%",
