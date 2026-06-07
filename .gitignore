@@ -1,0 +1,17 @@
+# Chrome extension private key
+key.pem
+
+# Meme trash
+.trash/
+
+# Python
+__pycache__/
+*.pyc
+build/
+*.egg-info/
+
+# Editor
+*.swp
+*.swo
+*~
+.DS_Store

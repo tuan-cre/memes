@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Meme Collection",
+  "version": "1.0",
+  "description": "Right-click any image to save it directly to your Meme Collection",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "contextMenus",
+    "nativeMessaging",
+    "notifications"
+  ],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsy9z0P5/CJ4sq1kPXnt2Oqay4hi5Gcx2U3iZQPjpif95sddKdGfrTCF5C+2uE2b40GqmpLH4PPbAJeONGoQ0ktPrYi9m8vmhdlHbm6fluvrRzYk58hvkPyhHEfSTjYxwv85boAaNGu9FbmOKibkc3EubhJmBNU0HtHha+S3ecywUax60noyxsZHs+ZXN3+E5ExLt2iBuCPD0xhrQnvpMTPHRcG+3cZha5pMlKp69UTIh6BMCqqetJnXr2QzDC3CxQET9xcQMBHblik+oxJZAWuSH0CgS96uGcvwVIlOgfTHmSqvWZtDu2ilNvr+rghd4Q7vPcexrYJaqjYWATRMdFwIDAQAB",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "me.memes.collection@neon",
+      "strict_min_version": "109.0"
+    }
+  }
+}

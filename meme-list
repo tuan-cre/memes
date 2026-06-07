@@ -1,0 +1,4 @@
+#!/bin/bash
+# meme-list — list all memes (delegates to `meme list`)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+exec "$SCRIPT_DIR/meme" list "$@"

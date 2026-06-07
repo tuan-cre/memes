@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "meme-collection"
+version = "2.0"
+description = "Cross-platform meme collection manager — CLI, browser extension, screen capture"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+keywords = ["meme", "cli", "screenshot", "clipboard"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "Pillow>=10.0",
+]
+
+[project."optional-dependencies"]
+capture = ["mss>=9.0"]
+notify = ["plyer>=2.1"]
+all = ["mss>=9.0", "plyer>=2.1"]
+dev = ["rich>=13.0"]
+
+[project.urls]
+Homepage = "https://github.com/neon/memes"
+
+[project.scripts]
+meme = "meme:main"
+meme-pick = "meme:main"
+meme-list = "meme:main"
+meme-capture = "meme:main"
+meme-from-clip = "meme:main"
+meme-rename = "meme:main"
+meme-trash = "meme:main"
+meme-native-host = "meme:main"
+
+[tool.setuptools]
+py-modules = ["meme"]
