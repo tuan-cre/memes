@@ -20,6 +20,7 @@ import argparse
 import base64
 import json
 import os
+import re
 import struct
 import subprocess
 import sys
@@ -620,7 +621,7 @@ def cmd_pick() -> int:
     return 0
 
 
-def cmd_capture() -> int:
+def cmd_capture(monitor: int | None = None) -> int:
     """Capture a screen region and save to collection."""
     MEME_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = int(time.time())
@@ -634,7 +635,7 @@ def cmd_capture() -> int:
     tmp = Path(tmp_str)
 
     try:
-        ok = _capture_to(tmp)
+        ok = _capture_to(tmp, monitor=monitor)
 
         if ok and tmp.exists() and tmp.stat().st_size > 0:
             tmp.rename(final_path)
@@ -653,25 +654,22 @@ def cmd_capture() -> int:
     return 0
 
 
-def _capture_to(path: Path) -> bool | None:
+def _capture_to(path: Path, monitor: int | None = None) -> bool | None:
     """Capture to *path*.  Returns True=ok, None=cancelled, False=error."""
     platform = _platform()
 
     if platform == "linux":
-        # ── slurp + grim (interactive region, Wayland) ──
-        if _tool_available("slurp") and _tool_available("grim"):
+        # slurp is optional for interactive region selection
+        if _tool_available("slurp"):
             region = subprocess.run(["slurp"], capture_output=True, text=True)
             if region.returncode != 0:
                 return None  # user cancelled
-
-            result = subprocess.run(
-                ["grim", "-g", region.stdout.strip()],
-                stdout=path.open("wb"),
-            )
-            return result.returncode == 0
-
-        # ── mss fallback (full screen) ──
-        return _capture_mss(path)
+            m = re.match(r"(\d+),(\d+)\s+(\d+)x(\d+)", region.stdout.strip())
+            if m:
+                x, y, w, h = map(int, m.groups())
+                return _capture_mss(path, {"left": x, "top": y, "width": w, "height": h})
+        # Fallback: capture selected monitor or primary
+        return _capture_mss(path, monitor=monitor)
 
     elif platform == "macos":
         if _tool_available("screencapture"):
@@ -681,17 +679,30 @@ def _capture_to(path: Path) -> bool | None:
             if path.exists() and path.stat().st_size > 0:
                 return True
             return None  # exit 0 but no file = cancelled
-        return _capture_mss(path)
+        return _capture_mss(path, monitor=monitor)
 
     # Windows and unknown — try mss
-    return _capture_mss(path)
+    return _capture_mss(path, monitor=monitor)
 
 
-def _capture_mss(filepath: Path) -> bool:
+def _capture_mss(
+    filepath: Path,
+    region: dict[str, int] | None = None,
+    monitor: int | None = None,
+) -> bool:
+    """Capture with mss.  *region* takes priority, then *monitor*, then primary."""
     try:
         import mss  # type: ignore[import-untyped]
+        import mss.tools
         with mss.mss() as sct:
-            sct.shot(output=str(filepath))
+            if region is not None:
+                target = region
+            elif monitor is not None and 0 < monitor < len(sct.monitors):
+                target = sct.monitors[monitor]
+            else:
+                target = sct.monitors[1]  # primary
+            screenshot = sct.grab(target)
+            mss.tools.to_png(screenshot.rgb, screenshot.size, output=str(filepath))
         return filepath.exists() and filepath.stat().st_size > 0
     except Exception:
         return False
@@ -909,7 +920,9 @@ def _build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("list", help="List all memes")
     sub.add_parser("pick", help="Interactive browser (requires fzf + chafa)")
-    sub.add_parser("capture", help="Capture screen region")
+    cp = sub.add_parser("capture", help="Capture screen region")
+    cp.add_argument("-m", "--monitor", type=int, default=None,
+                    help="Monitor index to capture (1-indexed, default: primary)")
     sub.add_parser("from-clip", help="Save clipboard image")
 
     rn = sub.add_parser("rename", help="Rename a meme")
@@ -937,7 +950,7 @@ def _run(args: argparse.Namespace) -> int:
         "list": cmd_list,
         "_list-tsv": cmd_list_tsv,
         "pick": cmd_pick,
-        "capture": cmd_capture,
+        "capture": lambda: cmd_capture(monitor=args.monitor),
         "from-clip": cmd_from_clip,
         "rename": lambda: cmd_rename(args.file),
         "trash": lambda: cmd_trash(args.file),
