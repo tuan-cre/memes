@@ -1,0 +1,4 @@
+#!/bin/bash
+# meme-tui — browse collection with full terminal UI (delegates to `meme tui`)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+exec "$SCRIPT_DIR/meme" tui "$@"

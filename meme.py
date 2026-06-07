@@ -930,6 +930,17 @@ def cmd_serve(port: int = 9876, memes_dir: str | None = None,
     return 0
 
 
+def cmd_tui() -> int:
+    """Launch the Textual TUI browser."""
+    try:
+        import tui_app  # type: ignore[import-untyped]  # noqa: F811
+        return tui_app.run()
+    except ImportError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        print("Install textual: pipx inject meme-collection textual", file=sys.stderr)
+        return 1
+
+
 def cmd_native_host() -> int:
     """Native messaging host for browser extension (stdin/stdout protocol)."""
     MEME_DIR.mkdir(parents=True, exist_ok=True)
@@ -965,6 +976,7 @@ def main() -> None:
         "meme-rename": "rename",
         "meme-trash": "trash",
         "meme-native-host": "native-host",
+        "meme-tui": "tui",
     }
 
     if prog in legacy:
@@ -1004,6 +1016,7 @@ def _build_parser() -> argparse.ArgumentParser:
     sv.add_argument("--seed", metavar="SERVER_URL",
                     help="Upload local memes to existing server and exit")
 
+    sub.add_parser("tui", help="Browse collection with a full terminal UI (requires textual)")
     sub.add_parser("native-host", help="Native messaging host (browser extension)")
     sub.add_parser("_list-tsv", help=argparse.SUPPRESS)
 
@@ -1026,6 +1039,7 @@ def _run(args: argparse.Namespace) -> int:
         "trash": lambda: cmd_trash(args.file),
         "serve": lambda: cmd_serve(args.port, args.dir, args.seed),
         "native-host": cmd_native_host,
+        "tui": cmd_tui,
     }
     handler = dispatch.get(args.command)
     if handler:
