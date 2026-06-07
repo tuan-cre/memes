@@ -40,4 +40,4 @@ meme-native-host = "meme:main"
 meme-tui = "meme:main"
 
 [tool.setuptools]
-py-modules = ["meme", "server"]
+py-modules = ["meme", "server", "tui_app"]
