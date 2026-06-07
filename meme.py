@@ -931,13 +931,12 @@ def cmd_serve(port: int = 9876, memes_dir: str | None = None,
 
 
 def cmd_tui() -> int:
-    """Launch the Textual TUI browser."""
+    """Open a terminal window with the fzf picker."""
     try:
-        import tui_app  # type: ignore[import-untyped]  # noqa: F811
+        import tui_app  # type: ignore[import-untyped]  # noqa: F100
         return tui_app.run()
     except ImportError as e:
         print(f"Error: {e}", file=sys.stderr)
-        print("Install textual: pipx inject meme-collection textual", file=sys.stderr)
         return 1
 
 

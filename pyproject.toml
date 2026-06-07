@@ -21,8 +21,7 @@ dependencies = [
 [project."optional-dependencies"]
 notify = ["plyer>=2.1"]
 serve = []  # stdlib only, no extra deps
-tui = ["textual>=8.0"]
-all = ["plyer>=2.1", "textual>=8.0"]
+all = ["plyer>=2.1"]
 dev = ["rich>=13.0"]
 
 [project.urls]
