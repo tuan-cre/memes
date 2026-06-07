@@ -469,7 +469,13 @@ def cmd_list() -> int:
 
 
 def cmd_list_tsv() -> int:
-    """Tab-separated output for fzf input (tab: display\\tfilename)."""
+    """Tab-separated output for fzf input.  Tries server first, falls back to local."""
+    remote = _server_get("memes")
+    if remote is not None:
+        for m in list(remote):
+            display = _format_remote_time(m.get("modified"))
+            print(f"{display}\t{m['filename']}")
+        return 0
     for m in _list_memes():
         print(f"{m['display']}\t{m['filename']}")
     return 0
@@ -533,6 +539,11 @@ def cmd_pick() -> int:
                 "--color", color,
                 "--height=100%",
                 "--no-info",
+                "--bind", f"ctrl-p:execute(imv '/tmp/meme-cache/" "{2}' 2>/dev/null)+abort",
+                "--bind", f"ctrl-d:execute({self_path} trash " "{2})+reload("
+                          f"{self_path} _list-tsv)",
+                "--bind", f"ctrl-r:execute({self_path} rename " "{2})+reload("
+                          f"{self_path} _list-tsv)",
             ],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
