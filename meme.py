@@ -473,8 +473,7 @@ def cmd_list_tsv() -> int:
     remote = _server_get("memes")
     if remote is not None:
         for m in list(remote):
-            display = _format_remote_time(m.get("modified"))
-            print(f"{display}\t{m['filename']}")
+            print(f"{m.get('display', m['filename'])}\t{m['filename']}")
         return 0
     for m in _list_memes():
         print(f"{m['display']}\t{m['filename']}")
@@ -504,7 +503,7 @@ def cmd_pick() -> int:
             return 0
 
         input_lines = "\n".join(
-            f"{_format_remote_time(m.get('modified'))}\t{m['filename']}"
+            f"{m.get('display', m['filename'])}\t{m['filename']}"
             for m in memes
         )
         server_url = _load_config()['server_url'].rstrip('/')
@@ -534,7 +533,7 @@ def cmd_pick() -> int:
                 "--preview-window", "right:60%:border-rounded",
                 "--layout=reverse",
                 "--border=rounded",
-                "--header", "  MEME COLLECTION  ",
+                "--header", "  MEME COLLECTION (SERVER)  ",
                 "--prompt", "▸ ",
                 "--color", color,
                 "--height=100%",
