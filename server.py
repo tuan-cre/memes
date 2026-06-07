@@ -21,6 +21,7 @@ import os
 import sys
 import time
 import urllib.parse
+from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from io import BytesIO
 from pathlib import Path
@@ -89,6 +90,7 @@ class MemeHandler(BaseHTTPRequestHandler):
                     "filename": f.name,
                     "size": f.stat().st_size,
                     "modified": f.stat().st_mtime,
+                    "display": datetime.fromtimestamp(f.stat().st_mtime).strftime("%b %d %H:%M"),
                 })
         return memes
 
