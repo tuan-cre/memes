@@ -1,2 +1,14 @@
-#!/bin/bash
-exec python3 -m meme native-host "$@"
+#!/usr/bin/env python3
+"""Native messaging host — delegates to `meme native-host`.
+
+Kept as a separate entry point so the browser extension's native messaging
+manifest (me.memes.collection.json) continues to work without changes.
+"""
+import sys
+from pathlib import Path
+
+script = Path(__file__).resolve().parent / "meme"
+sys.argv = [str(script), "native-host"] + sys.argv[1:]
+
+import runpy
+runpy.run_path(str(script), run_name="__main__")

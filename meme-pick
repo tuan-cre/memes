@@ -1,2 +1,4 @@
 #!/bin/bash
-exec python3 -m meme pick "$@"
+# meme-pick — interactive meme browser (delegates to `meme pick`)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+exec "$SCRIPT_DIR/meme" pick "$@"

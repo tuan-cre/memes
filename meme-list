@@ -1,2 +1,4 @@
 #!/bin/bash
-exec python3 -m meme list "$@"
+# meme-list — list all memes (delegates to `meme list`)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+exec "$SCRIPT_DIR/meme" list "$@"
