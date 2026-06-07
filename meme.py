@@ -21,6 +21,7 @@ import base64
 import json
 import os
 import re
+import shutil
 import struct
 import subprocess
 import sys
@@ -60,11 +61,8 @@ def _platform() -> str:
 
 
 def _tool_available(name: str) -> bool:
-    try:
-        subprocess.run([name, "--version"], capture_output=True, check=True)
-        return True
-    except (FileNotFoundError, subprocess.CalledProcessError):
-        return False
+    """Check if an executable exists on PATH (no Wayland-display needed)."""
+    return shutil.which(name) is not None
 
 
 def _notify(title: str, message: str, icon: Path | None = None) -> None:
