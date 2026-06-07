@@ -23,6 +23,9 @@ import struct
 import subprocess
 import sys
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
@@ -34,6 +37,11 @@ from PIL import Image
 
 MEME_DIR = Path.home() / ".local/share/memes"
 TRASH_DIR = MEME_DIR / ".trash"
+CONFIG_DIR = Path.home() / ".config/meme"
+CONFIG_FILE = CONFIG_DIR / "config.json"
+
+# Server offline flag — suppresses repeated "server unreachable" messages
+_SERVER_OK = True
 
 
 # ─── Platform helpers ────────────────────────────────────────────────────────
@@ -181,6 +189,190 @@ def _format_size(size: int) -> str:
     return f"{size}GB"
 
 
+# ─── Remote server config ───────────────────────────────────────────────────
+
+def _load_config() -> dict:
+    """Load user config from ~/.config/meme/config.json."""
+    default: dict = {
+        "server_url": None,
+    }
+    if CONFIG_FILE.exists():
+        try:
+            data = json.loads(CONFIG_FILE.read_text())
+            default.update(data)
+        except (json.JSONDecodeError, OSError):
+            pass
+    return default
+
+
+def _server_get(path: str) -> object | None:
+    """GET /api/{path} from the configured server. Returns parsed JSON or None."""
+    return _server_request("GET", path)
+
+
+def _server_get_file(path: str, save_to: Path) -> bool:
+    """GET /api/{path} (raw file) and write to save_to. Returns success."""
+    config = _load_config()
+    url = config.get("server_url")
+    if not url:
+        return False
+
+    full_url = f"{url.rstrip('/')}/api/{path.lstrip('/')}"
+    try:
+        req = urllib.request.Request(full_url, method="GET")
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            save_to.write_bytes(resp.read())
+        _set_server_ok(True)
+        return True
+    except (urllib.error.URLError, OSError) as e:
+        _handle_server_error(e)
+        return False
+
+
+def _server_post_file(path: str, filepath: Path) -> dict | None:
+    """POST /api/{path} as multipart upload. Returns response JSON or None."""
+    config = _load_config()
+    url = config.get("server_url")
+    if not url:
+        return None
+
+    import email.message
+    import uuid
+
+    full_url = f"{url.rstrip('/')}/api/{path.lstrip('/')}"
+    boundary = f"----{uuid.uuid4().hex}"
+    filename = filepath.name
+    data = filepath.read_bytes()
+
+    # Build multipart body manually (stdlib only)
+    part_headers = (
+        f'--{boundary}\r\n'
+        f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'
+        f'Content-Type: image/png\r\n\r\n'
+    ).encode()
+    part_footer = f'\r\n--{boundary}--\r\n'.encode()
+
+    body = part_headers + data + part_footer
+
+    try:
+        req = urllib.request.Request(
+            full_url, data=body, method="POST",
+            headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            result = json.loads(resp.read())
+            _set_server_ok(True)
+            return result
+    except (urllib.error.URLError, OSError) as e:
+        _handle_server_error(e)
+        return None
+
+
+def _server_put(path: str) -> dict | None:
+    """PUT /api/{path} on the server. Returns response JSON or None."""
+    config = _load_config()
+    url = config.get("server_url")
+    if not url:
+        return None
+
+    full_url = f"{url.rstrip('/')}/api/{path.lstrip('/')}"
+    return _do_server_request(full_url, "PUT")
+
+
+def _server_delete(path: str) -> dict | None:
+    """DELETE /api/{path} on the server. Returns response JSON or None."""
+    config = _load_config()
+    url = config.get("server_url")
+    if not url:
+        return None
+
+    full_url = f"{url.rstrip('/')}/api/{path.lstrip('/')}"
+    return _do_server_request(full_url, "DELETE")
+
+
+def _server_request(method: str, path: str) -> object | None:
+    """Generic request to server. Returns parsed JSON or None."""
+    config = _load_config()
+    url = config.get("server_url")
+    if not url:
+        return None
+
+    full_url = f"{url.rstrip('/')}/api/{path.lstrip('/')}"
+    try:
+        req = urllib.request.Request(full_url, method=method)
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read())
+            _set_server_ok(True)
+            return data
+    except (urllib.error.URLError, OSError) as e:
+        _handle_server_error(e)
+        return None
+
+
+def _do_server_request(url: str, method: str, body: bytes | None = None,
+                       headers: dict | None = None) -> dict | None:
+    """Low-level server request. Returns JSON dict or None."""
+    try:
+        req = urllib.request.Request(
+            url, data=body, method=method,
+            headers=headers or {},
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            result: dict = json.loads(resp.read())
+            _set_server_ok(True)
+            return result
+    except (urllib.error.URLError, OSError) as e:
+        _handle_server_error(e)
+        return None
+
+
+def _set_server_ok(ok: bool) -> None:
+    global _SERVER_OK
+    _SERVER_OK = ok
+
+
+def _handle_server_error(exc: Exception) -> None:
+    global _SERVER_OK
+    if _SERVER_OK:
+        print(f"[meme] server unreachable ({exc}), using local mode",
+              file=sys.stderr)
+        _SERVER_OK = False
+
+
+def _render_meme_table(memes: list[dict]) -> None:
+    """Display a list of meme dicts (local or remote) as a table."""
+    if not memes:
+        print("No memes on server!")
+        return
+
+    try:
+        from rich.console import Console
+        from rich.table import Table
+        from rich.text import Text
+        console = Console()
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("Date")
+        table.add_column("Filename", style="dim")
+        table.add_column("Size")
+        for m in memes:
+            modified = _format_remote_time(m.get("modified"))
+            table.add_row(modified, m["filename"],
+                          _format_size(m["size"]))
+        console.print(table)
+    except ImportError:
+        print(f"{'Date':<16} {'Filename':<30} {'Size':<8}")
+        print("-" * 56)
+        for m in memes:
+            modified = _format_remote_time(m.get("modified"))
+            print(f"{modified:<16} {m['filename']:<30} {_format_size(m['size']):<8}")
+
+
+def _format_remote_time(ts: float | None) -> str:
+    if ts:
+        return datetime.fromtimestamp(ts).strftime("%b %d %H:%M")
+    return ""
+
+
 # ─── Native messaging protocol (browser extension) ──────────────────────────
 
 def _read_native_msg() -> dict:
@@ -218,16 +410,35 @@ def _save_native_image(data_b64: str) -> dict:
         return {"success": False, "error": str(e)}
 
 
+def _upload_if_remote(filepath: Path) -> None:
+    """Upload a file to the server if configured. Non-blocking on failure."""
+    config = _load_config()
+    if not config.get("server_url"):
+        return
+    result = _server_post_file("memes", filepath)
+    if result is not None:
+        print(f"  → uploaded to server as {result.get('filename')}")
+    else:
+        print("  → upload to server failed (saved locally)", file=sys.stderr)
+
+
 # ─── Commands ────────────────────────────────────────────────────────────────
 
 def cmd_list() -> int:
-    """List all memes."""
+    """List all memes (local or remote)."""
+    # Try remote first if configured
+    remote = _server_get("memes")
+    if remote is not None:
+        memes: list[dict] = list(remote)  # type: ignore[assignment]
+        _render_meme_table(memes)
+        return 0
+
+    # Fall back to local
     memes = _list_memes()
     if not memes:
         print("No memes yet! Use capture or from-clip to add some.")
         return 0
 
-    # Try rich for pretty output
     try:
         from rich.console import Console
         from rich.table import Table
@@ -255,28 +466,10 @@ def cmd_list_tsv() -> int:
 
 
 def cmd_pick() -> int:
-    """Interactive meme browser via fzf."""
+    """Interactive meme browser via fzf (local or remote)."""
     if not _tool_available("fzf"):
         print("Error: fzf is required (install via your package manager)", file=sys.stderr)
         return 1
-
-    memes = _list_memes()
-    if not memes:
-        _notify("Meme Collection", "No memes yet!")
-        return 0
-
-    # Build fzf input
-    input_lines = "\n".join(f"{m['display']}\t{m['filename']}" for m in memes)
-
-    # Build preview command
-    if _tool_available("chafa"):
-        preview = (
-            "chafa --symbols=block --fill=block --scale max --align=mid,mid "
-            "--size=${FZF_PREVIEW_COLUMNS}x$(( ${FZF_PREVIEW_LINES} - 2 )) "
-            f"'{MEME_DIR}/" "{2}'"
-        )
-    else:
-        preview = f"cd '{MEME_DIR}' && echo {{2}} && file {{2}} && echo && stat --printf='Size: %s\\n' {{2}} 2>/dev/null || stat -f 'Size: %z' {{2}} 2>/dev/null; echo; echo 'Install chafa for image previews (brew install chafa)'"
 
     color = (
         "bg:#050508,bg+:#282838,fg:#d8d8d8,fg+:#ffffff,"
@@ -284,9 +477,83 @@ def cmd_pick() -> int:
         "spinner:#5c5c6e,header:#b48ead,prompt:#b48ead,"
         "border:#5c5c6e,marker:#c7a0c8"
     )
-
-    # Path to self for binds (use absolute, resolve symlinks)
     self_path = Path(sys.argv[0]).resolve()
+
+    # ── Try remote mode ──────────────────────────────────────────────────
+    remote_memes = _server_get("memes")
+    if remote_memes is not None:
+        memes: list[dict] = list(remote_memes)  # type: ignore[assignment]
+        if not memes:
+            _notify("Meme Collection", "No memes on server!")
+            return 0
+
+        input_lines = "\n".join(
+            f"{_format_remote_time(m.get('modified'))}\t{m['filename']}"
+            for m in memes
+        )
+        preview = (
+            f"echo '{{2}}  ({_format_size.__doc__ or ''})' && "
+            f"echo 'Size: $(( $(curl -sI {_load_config()['server_url'].rstrip('/')}/api/memes/"
+            "{{2}}" "' 2>/dev/null | grep -i content-length | awk '{print $2}' 2>/dev/null || echo '?' ) ) bytes'"
+        )
+
+        fzf = subprocess.Popen(
+            [
+                "fzf",
+                "--delimiter", "\t",
+                "--with-nth", "1",
+                "--preview", f"echo '  {{2}}' && echo && echo 'Download on selection'",
+                "--preview-window", "right:60%:border-rounded",
+                "--layout=reverse",
+                "--border=rounded",
+                "--header", "  MEME COLLECTION (server)  ",
+                "--prompt", "▸ ",
+                "--color", color,
+                "--height=100%",
+                "--no-info",
+            ],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        result, _ = fzf.communicate(input=input_lines)
+
+        if fzf.returncode != 0 or not result.strip():
+            return 0
+
+        filename = result.strip().split("\t")[-1]
+        # Download to temp and copy to clipboard
+        import tempfile
+        tmp = Path(tempfile.mkstemp(suffix=".png")[1])
+        if _server_get_file(f"memes/{filename}", tmp):
+            if _copy_image(tmp):
+                _notify("Meme Collection", f"Copied from server: {filename}")
+            else:
+                print(f"Downloaded: {tmp}")
+        else:
+            print(f"Error: could not download {filename}", file=sys.stderr)
+            return 1
+        return 0
+
+    # ── Local mode ───────────────────────────────────────────────────────
+    memes = _list_memes()
+    if not memes:
+        _notify("Meme Collection", "No memes yet!")
+        return 0
+
+    input_lines = "\n".join(f"{m['display']}\t{m['filename']}" for m in memes)
+
+    if _tool_available("chafa"):
+        preview = (
+            "chafa --symbols=block --fill=block --scale max --align=mid,mid "
+            "--size=${FZF_PREVIEW_COLUMNS}x$(( ${FZF_PREVIEW_LINES} - 2 )) "
+            f"'{MEME_DIR}/" "{2}'"
+        )
+    else:
+        preview = (f"cd '{MEME_DIR}' && echo {{2}} && file {{2}} && echo && "
+                   "stat --printf='Size: %s\\n' {{2}} 2>/dev/null || "
+                   "stat -f 'Size: %z' {{2}} 2>/dev/null; echo; echo "
+                   "'Install chafa for image previews (brew install chafa)'")
 
     fzf = subprocess.Popen(
         [
@@ -315,7 +582,7 @@ def cmd_pick() -> int:
     result, _ = fzf.communicate(input=input_lines)
 
     if fzf.returncode != 0 or not result.strip():
-        return 0  # User cancelled
+        return 0
 
     selected = result.strip()
     filename = selected.split("\t")[-1]
@@ -374,6 +641,10 @@ def cmd_capture() -> int:
 
     _copy_image(filepath)
     _notify("Meme Collection", f"Captured: {filepath.name}", icon=filepath)
+
+    # Upload to server if configured
+    _upload_if_remote(filepath)
+
     return 0
 
 
@@ -447,6 +718,10 @@ def cmd_from_clip() -> int:
         return 1
 
     _notify("Meme Collection", f"Saved: {filepath.name}", icon=filepath)
+
+    # Upload to server if configured
+    _upload_if_remote(filepath)
+
     return 0
 
 
@@ -464,11 +739,8 @@ def _clipboard_image_pil(filepath: Path) -> bool:
 
 
 def cmd_rename(name: str) -> int:
-    """Rename a meme interactively."""
+    """Rename a meme interactively (local + server if configured)."""
     filepath = _resolve_path(name)
-    if not filepath.exists():
-        _notify("Meme Collection", f"File not found: {filepath.name}")
-        return 1
 
     try:
         raw = input("New name: ").strip()
@@ -482,8 +754,19 @@ def cmd_rename(name: str) -> int:
         return 0
 
     raw = raw.replace("/", "_").replace(" ", "_")
-    new_path = filepath.with_name(f"{raw}.png")
 
+    # Rename on server if configured (works even if file not local)
+    server_result = _server_put(f"memes/{name}:{raw}.png")
+    if server_result is not None:
+        _notify("Meme Collection", f"Renamed on server → {raw}.png")
+        return 0
+
+    # Fall back to local rename
+    if not filepath.exists():
+        _notify("Meme Collection", f"File not found: {filepath.name}")
+        return 1
+
+    new_path = filepath.with_name(f"{raw}.png")
     if new_path.exists():
         print(f"Error: {new_path.name} already exists", file=sys.stderr)
         return 1
@@ -494,8 +777,21 @@ def cmd_rename(name: str) -> int:
 
 
 def cmd_trash(name: str) -> int:
-    """Move a meme to .trash/."""
+    """Move a meme to .trash/ (local + server if configured)."""
     filepath = _resolve_path(name)
+
+    # Delete on server if configured (works even if file not local)
+    server_result = _server_delete(f"memes/{name}")
+    if server_result is not None:
+        # Also trash locally if file exists
+        if filepath.exists():
+            TRASH_DIR.mkdir(parents=True, exist_ok=True)
+            dest = TRASH_DIR / filepath.name
+            filepath.rename(dest)
+        _notify("Meme Collection", f"Trashed: {name}")
+        return 0
+
+    # Fall back to local trash
     if not filepath.exists():
         _notify("Meme Collection", f"File not found: {filepath.name}")
         return 1
@@ -504,6 +800,20 @@ def cmd_trash(name: str) -> int:
     dest = TRASH_DIR / filepath.name
     filepath.rename(dest)
     _notify("Meme Collection", f"Trashed: {filepath.name}")
+    return 0
+
+
+def cmd_serve(port: int = 9876, memes_dir: str | None = None,
+              seed_url: str | None = None) -> int:
+    """Start the meme sharing server or seed memes to an existing one."""
+    if seed_url:
+        # Seed mode: upload local memes to an existing server
+        from server import seed as _seed
+        _seed(seed_url, memes_dir or str(MEME_DIR))
+        return 0
+
+    from server import serve as _serve
+    _serve(port, memes_dir or str(MEME_DIR))
     return 0
 
 
@@ -569,6 +879,14 @@ def _build_parser() -> argparse.ArgumentParser:
     tr = sub.add_parser("trash", help="Move meme to .trash/")
     tr.add_argument("file", help="Filename to trash")
 
+    sv = sub.add_parser("serve", help="Start meme sharing server")
+    sv.add_argument("--port", type=int, default=9876,
+                    help="Port to listen on (default: 9876)")
+    sv.add_argument("--dir", default=None,
+                    help="Memes directory (default: ~/.local/share/memes)")
+    sv.add_argument("--seed", metavar="SERVER_URL",
+                    help="Upload local memes to existing server and exit")
+
     sub.add_parser("native-host", help="Native messaging host (browser extension)")
     sub.add_parser("_list-tsv", help=argparse.SUPPRESS)
 
@@ -584,6 +902,7 @@ def _run(args: argparse.Namespace) -> int:
         "from-clip": cmd_from_clip,
         "rename": lambda: cmd_rename(args.file),
         "trash": lambda: cmd_trash(args.file),
+        "serve": lambda: cmd_serve(args.port, args.dir, args.seed),
         "native-host": cmd_native_host,
     }
     handler = dispatch.get(args.command)

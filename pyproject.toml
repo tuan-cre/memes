@@ -20,6 +20,7 @@ dependencies = [
 [project."optional-dependencies"]
 capture = ["mss>=9.0"]
 notify = ["plyer>=2.1"]
+serve = []  # stdlib only, no extra deps
 all = ["mss>=9.0", "plyer>=2.1"]
 dev = ["rich>=13.0"]
 
