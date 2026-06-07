@@ -659,7 +659,18 @@ def _capture_to(path: Path, monitor: int | None = None) -> bool | None:
     platform = _platform()
 
     if platform == "linux":
-        # slurp is optional for interactive region selection
+        # ── grim + slurp: native Wayland (wlr-screencopy) ──
+        if _tool_available("slurp") and _tool_available("grim"):
+            region = subprocess.run(["slurp"], capture_output=True, text=True)
+            if region.returncode != 0:
+                return None  # user cancelled
+            result = subprocess.run(
+                ["grim", "-g", region.stdout.strip()],
+                stdout=path.open("wb"),
+            )
+            return result.returncode == 0
+
+        # ── slurp (interaction) + mss (capture) ──
         if _tool_available("slurp"):
             region = subprocess.run(["slurp"], capture_output=True, text=True)
             if region.returncode != 0:
@@ -668,7 +679,7 @@ def _capture_to(path: Path, monitor: int | None = None) -> bool | None:
             if m:
                 x, y, w, h = map(int, m.groups())
                 return _capture_mss(path, {"left": x, "top": y, "width": w, "height": h})
-        # Fallback: capture selected monitor or primary
+        # ── mss full-screen fallback (X11 / portals) ──
         return _capture_mss(path, monitor=monitor)
 
     elif platform == "macos":
