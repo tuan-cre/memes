@@ -1,4 +1,2 @@
 #!/bin/bash
-# meme-from-clip — save clipboard image (delegates to `meme from-clip`)
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-exec "$SCRIPT_DIR/meme" from-clip "$@"
+exec python3 -m meme from-clip "$@"

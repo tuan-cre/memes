@@ -1,4 +1,2 @@
 #!/bin/bash
-# meme-rename — rename a meme (delegates to `meme rename`)
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-exec "$SCRIPT_DIR/meme" rename "$@"
+exec python3 -m meme rename "$@"

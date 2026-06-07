@@ -1,4 +1,2 @@
 #!/bin/bash
-# meme-trash — soft-delete a meme (delegates to `meme trash`)
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-exec "$SCRIPT_DIR/meme" trash "$@"
+exec python3 -m meme trash "$@"
