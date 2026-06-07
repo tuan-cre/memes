@@ -47,6 +47,9 @@ CONFIG_FILE = CONFIG_DIR / "config.json"
 # Server offline flag — suppresses repeated "server unreachable" messages
 _SERVER_OK = True
 
+# Debug mode — set via --debug flag on supported commands
+_DEBUG = False
+
 
 # ─── Platform helpers ────────────────────────────────────────────────────────
 
@@ -100,6 +103,12 @@ def _notify(title: str, message: str, icon: Path | None = None) -> None:
             pass
 
     print(f"[{title}] {message}", file=sys.stderr)
+
+
+def _debug(msg: str) -> None:
+    """Print debug message to stderr when --debug is enabled."""
+    if _DEBUG:
+        print(f"[debug] {msg}", file=sys.stderr)
 
 
 def _copy_image(path: Path) -> bool:
@@ -655,42 +664,64 @@ def cmd_capture(monitor: int | None = None) -> int:
 def _capture_to(path: Path, monitor: int | None = None) -> bool | None:
     """Capture to *path*.  Returns True=ok, None=cancelled, False=error."""
     platform = _platform()
+    _debug(f"platform={platform}, monitor={monitor}, path={path}")
 
     if platform == "linux":
         # ── grim + slurp: native Wayland (wlr-screencopy) ──
-        if _tool_available("slurp") and _tool_available("grim"):
+        has_slurp = _tool_available("slurp")
+        has_grim = _tool_available("grim")
+        _debug(f"slurp={has_slurp}, grim={has_grim}")
+
+        if has_slurp and has_grim:
+            _debug("path: grim+slurp (native Wayland)")
             region = subprocess.run(["slurp"], capture_output=True, text=True)
+            _debug(f"slurp rc={region.returncode}, stdout={region.stdout.strip()!r}")
             if region.returncode != 0:
                 return None  # user cancelled
             result = subprocess.run(
                 ["grim", "-g", region.stdout.strip()],
                 stdout=path.open("wb"),
             )
-            return result.returncode == 0
+            _debug(f"grim rc={result.returncode}")
+            if result.returncode != 0:
+                _debug(f"grim stderr: {result.stderr.strip() if result.stderr else '(none)'}")
+            ok = result.returncode == 0
+            _debug(f"grim result: {'ok' if ok else 'FAILED'}")
+            return ok
 
         # ── slurp (interaction) + mss (capture) ──
-        if _tool_available("slurp"):
+        if has_slurp:
+            _debug("path: slurp+mss (grim not found)")
             region = subprocess.run(["slurp"], capture_output=True, text=True)
+            _debug(f"slurp rc={region.returncode}, stdout={region.stdout.strip()!r}")
             if region.returncode != 0:
                 return None  # user cancelled
             m = re.match(r"(\d+),(\d+)\s+(\d+)x(\d+)", region.stdout.strip())
             if m:
                 x, y, w, h = map(int, m.groups())
+                _debug(f"region: {x},{y} {w}x{h}")
                 return _capture_mss(path, {"left": x, "top": y, "width": w, "height": h})
+            _debug(f"slurp output did not match expected pattern: {region.stdout.strip()!r}")
         # ── mss full-screen fallback (X11 / portals) ──
+        _debug("path: mss full-screen fallback")
         return _capture_mss(path, monitor=monitor)
 
     elif platform == "macos":
-        if _tool_available("screencapture"):
+        has_scr = _tool_available("screencapture")
+        _debug(f"screencapture={has_scr}")
+        if has_scr:
             result = subprocess.run(["screencapture", "-i", str(path)])
+            _debug(f"screencapture rc={result.returncode}, file_exists={path.exists()}")
             if result.returncode != 0:
                 return None
             if path.exists() and path.stat().st_size > 0:
                 return True
             return None  # exit 0 but no file = cancelled
+        _debug("path: mss (no screencapture)")
         return _capture_mss(path, monitor=monitor)
 
     # Windows and unknown — try mss
+    _debug(f"path: mss (platform={platform})")
     return _capture_mss(path, monitor=monitor)
 
 
@@ -706,14 +737,22 @@ def _capture_mss(
         with mss.mss() as sct:
             if region is not None:
                 target = region
+                _debug(f"mss: capturing custom region {target}")
             elif monitor is not None and 0 < monitor < len(sct.monitors):
                 target = sct.monitors[monitor]
+                _debug(f"mss: capturing monitor {monitor}: {target}")
             else:
                 target = sct.monitors[1]  # primary
+                _debug(f"mss: capturing primary monitor: {target}")
             screenshot = sct.grab(target)
+            _debug(f"mss: grabbed {screenshot.size}, rgb bytes={len(screenshot.rgb)}")
             mss.tools.to_png(screenshot.rgb, screenshot.size, output=str(filepath))
-        return filepath.exists() and filepath.stat().st_size > 0
-    except Exception:
+        exists = filepath.exists()
+        size = filepath.stat().st_size if exists else 0
+        _debug(f"mss: output file exists={exists}, size={size}")
+        return exists and size > 0
+    except Exception as e:
+        _debug(f"mss: EXCEPTION {type(e).__name__}: {e}")
         return False
 
 
@@ -932,6 +971,8 @@ def _build_parser() -> argparse.ArgumentParser:
     cp = sub.add_parser("capture", help="Capture screen region")
     cp.add_argument("-m", "--monitor", type=int, default=None,
                     help="Monitor index to capture (1-indexed, default: primary)")
+    cp.add_argument("-d", "--debug", action="store_true",
+                    help="Print debug diagnostics to stderr")
     sub.add_parser("from-clip", help="Save clipboard image")
 
     rn = sub.add_parser("rename", help="Rename a meme")
@@ -955,6 +996,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _run(args: argparse.Namespace) -> int:
+    # Enable debug mode before dispatching (so capture logging works)
+    if getattr(args, "debug", False):
+        global _DEBUG
+        _DEBUG = True
+
     dispatch: dict[str, Callable[..., int]] = {
         "list": cmd_list,
         "_list-tsv": cmd_list_tsv,
