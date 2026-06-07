@@ -38,4 +38,4 @@ meme-trash = "meme:main"
 meme-native-host = "meme:main"
 
 [tool.setuptools]
-py-modules = ["meme"]
+py-modules = ["meme", "server"]
