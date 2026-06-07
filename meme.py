@@ -22,6 +22,7 @@ import json
 import struct
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -491,18 +492,30 @@ def cmd_pick() -> int:
             f"{_format_remote_time(m.get('modified'))}\t{m['filename']}"
             for m in memes
         )
-        preview = (
-            f"echo '{{2}}  ({_format_size.__doc__ or ''})' && "
-            f"echo 'Size: $(( $(curl -sI {_load_config()['server_url'].rstrip('/')}/api/memes/"
-            "{{2}}" "' 2>/dev/null | grep -i content-length | awk '{print $2}' 2>/dev/null || echo '?' ) ) bytes'"
-        )
+        server_url = _load_config()['server_url'].rstrip('/')
+
+        if _tool_available("chafa"):
+            preview = (
+                "mkdir -p /tmp/meme-cache; "
+                f"cache='/tmp/meme-cache/{{2}}'; "
+                f"[ -f \"$cache\" ] || curl -s -o \"$cache\" "
+                f"'{server_url}/api/memes/'{{2}}; "
+                f"chafa --symbols=block --fill=block --scale max --align=mid,mid "
+                f"--size=${{FZF_PREVIEW_COLUMNS}}x$(( ${{FZF_PREVIEW_LINES}} - 2 )) "
+                f"\"$cache\" 2>/dev/null; "
+                f"echo '  {{2}}'"
+            )
+        else:
+            preview = (
+                f"echo '  {{2}}' && echo && echo 'Select to download and open'"
+            )
 
         fzf = subprocess.Popen(
             [
                 "fzf",
                 "--delimiter", "\t",
                 "--with-nth", "1",
-                "--preview", f"echo '  {{2}}' && echo && echo 'Download on selection'",
+                "--preview", preview,
                 "--preview-window", "right:60%:border-rounded",
                 "--layout=reverse",
                 "--border=rounded",
@@ -523,16 +536,22 @@ def cmd_pick() -> int:
 
         filename = result.strip().split("\t")[-1]
         # Download to temp and copy to clipboard
-        import tempfile
         tmp = Path(tempfile.mkstemp(suffix=".png")[1])
-        if _server_get_file(f"memes/{filename}", tmp):
-            if _copy_image(tmp):
-                _notify("Meme Collection", f"Copied from server: {filename}")
-            else:
-                print(f"Downloaded: {tmp}")
-        else:
+        if not _server_get_file(f"memes/{filename}", tmp):
             print(f"Error: could not download {filename}", file=sys.stderr)
             return 1
+
+        # Open with image viewer
+        for viewer in ("imv", "feh", "sxiv", "xdg-open"):
+            if _tool_available(viewer):
+                subprocess.Popen([viewer, str(tmp)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                break
+
+        # Copy to clipboard
+        if _copy_image(tmp):
+            _notify("Meme Collection", f"Copied from server: {filename}", icon=tmp)
+        else:
+            print(f"Downloaded: {tmp}")
         return 0
 
     # ── Local mode ───────────────────────────────────────────────────────
