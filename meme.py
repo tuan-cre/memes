@@ -931,7 +931,7 @@ def cmd_serve(port: int = 9876, memes_dir: str | None = None,
 
 
 def cmd_tui() -> int:
-    """Open a terminal window with the fzf picker."""
+    """Open a terminal window with the fzf picker (cross-platform)."""
     try:
         import tui_app  # type: ignore[import-untyped]  # noqa: F100
         return tui_app.run()
