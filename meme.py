@@ -634,6 +634,7 @@ def cmd_capture() -> int:
             with filepath.open("wb") as f:
                 subprocess.run(["grim", "-g", region.stdout.strip()], stdout=f, check=True)
         except (FileNotFoundError, subprocess.CalledProcessError):
+            filepath.unlink(missing_ok=True)
             if not _capture_mss(filepath):
                 print("Install slurp+grim or: pip install mss", file=sys.stderr)
                 return 1
@@ -657,6 +658,11 @@ def cmd_capture() -> int:
         if not _capture_mss(filepath):
             print(f"Unsupported platform: {platform}", file=sys.stderr)
             return 1
+
+    if not filepath.exists() or filepath.stat().st_size == 0:
+        filepath.unlink(missing_ok=True)
+        _notify("Meme Collection", "Capture failed (empty file)")
+        return 1
 
     _copy_image(filepath)
     _notify("Meme Collection", f"Captured: {filepath.name}", icon=filepath)
