@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "meme-collection"
-version = "3.3"
+version = "3.4"
 description = "Cross-platform meme collection manager — CLI, browser extension, screen capture"
 requires-python = ">=3.10"
 license = {text = "MIT"}
