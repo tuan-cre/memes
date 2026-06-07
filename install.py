@@ -45,6 +45,9 @@ def main():
     pip_args = [sys.executable, "-m", "pip", "install", "--quiet"]
     if install_user and not install_global:
         pip_args.append("--user")
+    # Also offer installing from GitHub
+    print("  Or install directly from GitHub:")
+    print("  pip install git+https://github.com/tuan-cre/memes.git")
     pip_args.append(str(src))  # local package install
 
     try:

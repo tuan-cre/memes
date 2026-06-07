@@ -24,7 +24,7 @@ all = ["mss>=9.0", "plyer>=2.1"]
 dev = ["rich>=13.0"]
 
 [project.urls]
-Homepage = "https://github.com/neon/memes"
+Homepage = "https://github.com/tuan-cre/memes"
 
 [project.scripts]
 meme = "meme:main"
