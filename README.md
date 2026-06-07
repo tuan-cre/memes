@@ -77,7 +77,7 @@ Start the server on a machine both you and your friend can reach:
 meme serve --port 9876 --dir /srv/memes
 ```
 
-On each client machine, create `~/.config/meme/config.json`:
+On each client machine, create `~/.config/memes/config.json`:
 
 ```json
 { "server_url": "http://your-server-ip:9876" }

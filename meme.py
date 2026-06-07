@@ -37,7 +37,7 @@ from PIL import Image
 
 MEME_DIR = Path.home() / ".local/share/memes"
 TRASH_DIR = MEME_DIR / ".trash"
-CONFIG_DIR = Path.home() / ".config/meme"
+CONFIG_DIR = Path.home() / ".config/memes"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
 # Server offline flag — suppresses repeated "server unreachable" messages

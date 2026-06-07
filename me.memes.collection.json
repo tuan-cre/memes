@@ -1,7 +1,7 @@
 {
   "name": "me.memes.collection",
   "description": "Native host for Meme Collection browser extension",
-  "path": "/home/neon/.config/memes/meme-native-host",
+  "path": "/home/neon/.local/bin/meme-native-host",
   "type": "stdio",
   "allowed_origins": ["chrome-extension://gpkjpnohnkoofogdlihfamckipihnicm/"],
   "allowed_extensions": ["me.memes.collection@neon"]
