@@ -643,12 +643,17 @@ def cmd_capture(monitor: int | None = None) -> int:
 
     try:
         ok = _capture_to(tmp, monitor=monitor)
+        _debug(f"capture_to returned ok={ok!r}")
 
         if ok and tmp.exists() and tmp.stat().st_size > 0:
+            sz = tmp.stat().st_size
+            _debug(f"rename: tmp exists (size={sz}) -> {final_path.name}")
             tmp.rename(final_path)
         elif ok is None:  # user cancelled
             return 0
         else:
+            sz = tmp.stat().st_size if tmp.exists() else -1
+            _debug(f"failure: ok={ok!r}, tmp_exists={tmp.exists()}, tmp_size={sz}")
             _notify("Meme Collection", "Capture failed")
             return 1
     finally:
@@ -679,14 +684,14 @@ def _capture_to(path: Path, monitor: int | None = None) -> bool | None:
             if region.returncode != 0:
                 return None  # user cancelled
             result = subprocess.run(
-                ["grim", "-g", region.stdout.strip()],
-                stdout=path.open("wb"),
+                ["grim", "-g", region.stdout.strip(), str(path)],
+                capture_output=True, text=True,
             )
             _debug(f"grim rc={result.returncode}")
             if result.returncode != 0:
                 _debug(f"grim stderr: {result.stderr.strip() if result.stderr else '(none)'}")
-            ok = result.returncode == 0
-            _debug(f"grim result: {'ok' if ok else 'FAILED'}")
+            ok = result.returncode == 0 and path.exists() and path.stat().st_size > 0
+            _debug(f"grim result: {'ok' if ok else 'FAILED'} (size={path.stat().st_size if path.exists() else 0})")
             return ok
 
         # ── slurp (interaction) + mss (capture) ──
