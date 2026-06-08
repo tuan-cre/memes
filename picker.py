@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Meme Collection TUI — cross-platform wrapper that opens ``meme pick`` in a
-dedicated terminal window, matching the appearance of a standalone TUI app.
+Meme Collection Picker — cross-platform wrapper that opens ``meme pick`` in a
+dedicated terminal window, giving the feel of a standalone picker app.
 
 Usage:
-    meme tui
+    meme picker
 
 Platform behaviour:
     Linux   — detects foot → kitty → alacritty → gnome-terminal → …

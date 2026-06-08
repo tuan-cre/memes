@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "meme-collection"
-version = "3.4"
+version = "3.5"
 description = "Cross-platform meme collection manager — CLI, browser extension, screen capture"
 requires-python = ">=3.10"
 license = {text = "MIT"}
@@ -36,7 +36,7 @@ meme-from-clip = "meme:main"
 meme-rename = "meme:main"
 meme-trash = "meme:main"
 meme-native-host = "meme:main"
-meme-tui = "meme:main"
+meme-picker = "meme:main"
 
 [tool.setuptools]
-py-modules = ["meme", "server", "tui_app"]
+py-modules = ["meme", "server", "picker"]

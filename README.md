@@ -13,7 +13,8 @@ pip install git+https://github.com/tuan-cre/memes.git
 | Command | What it does |
 |---------|-------------|
 | `meme list` | List all memes |
-| `meme pick` | Interactive browser with fzf + image previews |
+| `meme pick` | Interactive browser with fzf + chafa image previews |
+| `meme picker` | Open `meme pick` in a dedicated terminal window |
 | `meme capture` | Select a screen region → save to collection |
 | `meme from-clip` | Save clipboard image to collection |
 | `meme rename <file>` | Rename a meme |
@@ -24,33 +25,31 @@ pip install git+https://github.com/tuan-cre/memes.git
 
 ## Install
 
-### From GitHub (any platform)
+### Linux
 
 ```bash
+# Dependencies: fzf (fuzzy picker) + chafa (image previews)
+sudo apt install fzf chafa    # Debian/Ubuntu
+sudo pacman -S fzf chafa      # Arch
+sudo dnf install fzf chafa    # Fedora
+
+# Install the tool (recommended: pipx for isolated CLI tools)
+pipx install git+https://github.com/tuan-cre/memes.git
+
+# Or with pip if you prefer:
+# pip install git+https://github.com/tuan-cre/memes.git
+```
+
+### Windows 11
+
+```powershell
+# Dependencies
+winget install fzf
+winget install hpjansson.Chafa
+
+# Install the tool
 pip install git+https://github.com/tuan-cre/memes.git
 ```
-
-Or to install with optional extras:
-
-```bash
-pip install "meme-collection[capture,notify] @ git+https://github.com/tuan-cre/memes.git"
-```
-
-### Bootstrap script
-
-```bash
-python3 install.py
-```
-
-### Manual
-
-Only hard dependency is **Pillow**. Optional deps:
-
-- `mss` — cross-platform screen capture (no native tools needed)
-- `plyer` — desktop notifications on all platforms
-- `fzf` — interactive picking with fuzzy search
-- `chafa` — image previews inside fzf
-- `rich` — pretty table formatting
 
 ---
 
@@ -143,7 +142,7 @@ Right-click any image → **Save to Meme Collection** → saved to `~/.local/sha
 | Screen capture | slurp+grim or mss | screencapture or mss | mss |
 | Clipboard | wl-copy/xclip | osascript / PIL | PIL / win32clipboard |
 | Notifications | notify-send / plyer | osascript / plyer | plyer |
-| fzf picker | ✓ | ✓ | (via WSL) |
+| fzf picker | ✓ | ✓ | ✓ (native via winget) |
 | Server | ✓ | ✓ | ✓ |
 
 ---
@@ -152,6 +151,7 @@ Right-click any image → **Save to Meme Collection** → saved to `~/.local/sha
 
 ```
 ├── meme.py              # Single-file Python CLI (all commands)
+├── picker.py            # Terminal wrapper (opens `meme pick` in a new window)
 ├── server.py            # HTTP sharing server (stdlib only)
 ├── pyproject.toml       # pip package config
 ├── install.py           # Bootstrap installer
@@ -160,10 +160,6 @@ Right-click any image → **Save to Meme Collection** → saved to `~/.local/sha
 │   ├── manifest.json
 │   ├── background.js
 │   └── icons/
-├── meme-pick            # Shell wrappers (call meme <subcommand>)
-├── meme-list
-├── meme-capture
-├── ...
 └── README.md
 ```
 

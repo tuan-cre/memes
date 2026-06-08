@@ -930,11 +930,11 @@ def cmd_serve(port: int = 9876, memes_dir: str | None = None,
     return 0
 
 
-def cmd_tui() -> int:
-    """Open a terminal window with the fzf picker (cross-platform)."""
+def cmd_picker() -> int:
+    """Open a terminal window running ``meme pick`` (cross-platform)."""
     try:
-        import tui_app  # type: ignore[import-untyped]  # noqa: F100
-        return tui_app.run()
+        import picker  # type: ignore[import-untyped]  # noqa: F100
+        return picker.run()
     except ImportError as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
@@ -960,6 +960,8 @@ def cmd_native_host() -> int:
     return 0
 
 
+
+
 # ─── CLI dispatch ────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -975,7 +977,7 @@ def main() -> None:
         "meme-rename": "rename",
         "meme-trash": "trash",
         "meme-native-host": "native-host",
-        "meme-tui": "tui",
+        "meme-picker": "picker",
     }
 
     if prog in legacy:
@@ -1015,7 +1017,7 @@ def _build_parser() -> argparse.ArgumentParser:
     sv.add_argument("--seed", metavar="SERVER_URL",
                     help="Upload local memes to existing server and exit")
 
-    sub.add_parser("tui", help="Browse collection with a full terminal UI (requires textual)")
+    sub.add_parser("picker", help="Open ``meme pick`` in a dedicated terminal window")
     sub.add_parser("native-host", help="Native messaging host (browser extension)")
     sub.add_parser("_list-tsv", help=argparse.SUPPRESS)
 
@@ -1038,8 +1040,8 @@ def _run(args: argparse.Namespace) -> int:
         "trash": lambda: cmd_trash(args.file),
         "serve": lambda: cmd_serve(args.port, args.dir, args.seed),
         "native-host": cmd_native_host,
-        "tui": cmd_tui,
-    }
+    "picker": cmd_picker,
+}
     handler = dispatch.get(args.command)
     if handler:
         return handler()
