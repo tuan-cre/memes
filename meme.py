@@ -117,13 +117,13 @@ def _preview_path(placeholder: str = "{2}") -> str:
     """Return MEME_DIR path with quoting suitable for fzf preview on the platform.
 
     Unix: single quotes (shell strips them).
-    Windows: bare path (cmd.exe /c wraps in double quotes already, so any
-    additional quotes create nesting and cmd.exe inserts `^` escapes).
+    Windows: bare native path (no quotes — cmd.exe /c/qqp wraps in double
+    quotes already; no forward slashes — cmd.exe interprets `/` as switch
+    prefix and inserts `^` escapes before the next token).
     """
-    path = f"{MEME_DIR}/{placeholder}"
     if _platform() == "windows":
-        return path
-    return f"'{path}'"
+        return f"{MEME_DIR}\\{placeholder}"
+    return f"'{MEME_DIR}/{placeholder}'"
 
 
 def _debug(msg: str) -> None:
