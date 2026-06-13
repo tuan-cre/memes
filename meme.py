@@ -105,6 +105,14 @@ def _notify(title: str, message: str, icon: Path | None = None) -> None:
     print(f"[{title}] {message}", file=sys.stderr)
 
 
+def _chafa_size_flag() -> str:
+    """Return chafa --size flag for fzf preview window. Omit on Windows
+    (cmd.exe can't expand $FZF_PREVIEW_COLUMNS bash syntax — chafa auto-detects)."""
+    if _platform() == "windows":
+        return ""
+    return "--size=${FZF_PREVIEW_COLUMNS}x$(( ${FZF_PREVIEW_LINES} - 2 )) "
+
+
 def _debug(msg: str) -> None:
     """Print debug message to stderr when --debug is enabled."""
     if _DEBUG:
@@ -523,13 +531,14 @@ def cmd_pick() -> int:
         server_url = _load_config()['server_url'].rstrip('/')
 
         if _tool_available("chafa"):
+            size_flag = _chafa_size_flag()
             preview = (
                 "mkdir -p /tmp/meme-cache; "
                 f"cache='/tmp/meme-cache/{{2}}'; "
                 f"[ -f \"$cache\" ] || curl -s -o \"$cache\" "
                 f"'{server_url}/api/memes/'{{2}}; "
                 f"chafa --symbols=block --fill=block --scale max --align=mid,mid "
-                f"--size=${{FZF_PREVIEW_COLUMNS}}x$(( ${{FZF_PREVIEW_LINES}} - 2 )) "
+                f"{size_flag}"
                 f"\"$cache\" 2>/dev/null; "
                 f"echo '  {{2}}'"
             )
@@ -596,9 +605,10 @@ def cmd_pick() -> int:
     input_lines = "\n".join(f"{m['display']}\t{m['filename']}" for m in memes)
 
     if _tool_available("chafa"):
+        size_flag = _chafa_size_flag()
         preview = (
             "chafa --symbols=block --fill=block --scale max --align=mid,mid "
-            "--size=${FZF_PREVIEW_COLUMNS}x$(( ${FZF_PREVIEW_LINES} - 2 )) "
+            f"{size_flag}"
             f"'{MEME_DIR}/" "{2}'"
         )
     else:
