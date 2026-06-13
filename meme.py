@@ -105,6 +105,15 @@ def _notify(title: str, message: str, icon: Path | None = None) -> None:
     print(f"[{title}] {message}", file=sys.stderr)
 
 
+def _chafa_format_flag() -> str:
+    """Return chafa --format flag.
+    Windows: force symbols mode (fzf preview can't render sixel/kitty).
+    Unix: empty — auto-detect (sixel/kitty for high-res)."""
+    if _platform() == "windows":
+        return "--format symbols "
+    return ""
+
+
 def _chafa_size_flag() -> str:
     """Return chafa --size flag for fzf preview window.
     Unix:  bash syntax — $VAR + arithmetic expansion
@@ -543,13 +552,14 @@ def cmd_pick() -> int:
         server_url = _load_config()['server_url'].rstrip('/')
 
         if _tool_available("chafa"):
+            format_flag = _chafa_format_flag()
             size_flag = _chafa_size_flag()
             preview = (
                 "mkdir -p /tmp/meme-cache; "
                 f"cache='/tmp/meme-cache/{{2}}'; "
                 f"[ -f \"$cache\" ] || curl -s -o \"$cache\" "
                 f"'{server_url}/api/memes/'{{2}}; "
-                f"chafa --format symbols --symbols=block --fill=block --scale max --align center "
+                f"chafa {format_flag}--symbols=block --fill=block --scale max --align center "
                 f"{size_flag}"
                 f"\"$cache\" 2>/dev/null; "
                 f"echo '  {{2}}'"
@@ -620,9 +630,10 @@ def cmd_pick() -> int:
     )
 
     if _tool_available("chafa"):
+        format_flag = _chafa_format_flag()
         size_flag = _chafa_size_flag()
         preview = (
-            "chafa --format symbols --symbols=block --fill=block --scale max --align center "
+            f"chafa {format_flag}--symbols=block --fill=block --scale max --align center "
             f"{size_flag}"
             f"{_preview_path()}"
         )
