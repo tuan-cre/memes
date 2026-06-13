@@ -118,10 +118,14 @@ def _preview_path(placeholder: str = "{2}") -> str:
 
     Unix: single quotes (shell strips them).
     Windows: double quotes (cmd.exe treats single quotes as literals).
+
+    Uses forward-slash separator before the placeholder to avoid issues with
+    backslashes preventing fzf's {N} template expansion on Windows.
     """
+    path = f"{MEME_DIR}/{placeholder}"
     if _platform() == "windows":
-        return f'"{MEME_DIR}\\{placeholder}"'
-    return f"'{MEME_DIR}/{placeholder}'"
+        return f'"{path}"'
+    return f"'{path}'"
 
 
 def _debug(msg: str) -> None:
