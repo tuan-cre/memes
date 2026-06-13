@@ -113,17 +113,15 @@ def _chafa_size_flag() -> str:
     return "--size=${FZF_PREVIEW_COLUMNS}x$(( ${FZF_PREVIEW_LINES} - 2 )) "
 
 
-def _preview_path(placeholder: str = "{2}") -> str:
-    """Return MEME_DIR path with quoting suitable for fzf preview on the platform.
+def _preview_path(placeholder: str = "{3}") -> str:
+    """Return placeholder with quoting suitable for fzf preview.
 
-    Unix: single quotes (shell strips them).
-    Windows: bare native path (no quotes — cmd.exe /c/qqp wraps in double
-    quotes already; no forward slashes — cmd.exe interprets `/` as switch
-    prefix and inserts `^` escapes before the next token).
+    Windows: fzf auto-wraps ``{N}`` in double quotes on cmd.exe.
+    Unix: wrap in single quotes for shell safety.
     """
     if _platform() == "windows":
-        return f"{MEME_DIR}\\{placeholder}"
-    return f"'{MEME_DIR}/{placeholder}'"
+        return placeholder
+    return f"'{placeholder}'"
 
 
 def _debug(msg: str) -> None:
@@ -615,7 +613,10 @@ def cmd_pick() -> int:
         _notify("Meme Collection", "No memes yet!")
         return 0
 
-    input_lines = "\n".join(f"{m['display']}\t{m['filename']}" for m in memes)
+    input_lines = "\n".join(
+        f"{m['display']}\t{m['filename']}\t{str(MEME_DIR / m['filename'])}"
+        for m in memes
+    )
 
     if _tool_available("chafa"):
         size_flag = _chafa_size_flag()
@@ -660,9 +661,9 @@ def cmd_pick() -> int:
         return 0
 
     selected = result.strip()
-    filename = selected.split("\t")[-1]
-    display = selected.split("\t")[0]
-    filepath = MEME_DIR / filename
+    fields = selected.split("\t")
+    display = fields[0]
+    filepath = Path(fields[-1])  # third field: full path
 
     if not filepath.exists():
         print(f"Error: file not found: {filepath}", file=sys.stderr)
