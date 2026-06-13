@@ -114,17 +114,15 @@ def _chafa_size_flag() -> str:
 
 
 def _preview_path(placeholder: str = "{2}") -> str:
-    """Return MEME_DIR path with platform-appropriate quoting for fzf preview.
+    """Return MEME_DIR path with quoting suitable for fzf preview on the platform.
 
     Unix: single quotes (shell strips them).
-    Windows: double quotes (cmd.exe treats single quotes as literals).
-
-    Uses forward-slash separator before the placeholder to avoid issues with
-    backslashes preventing fzf's {N} template expansion on Windows.
+    Windows: bare path (cmd.exe /c wraps in double quotes already, so any
+    additional quotes create nesting and cmd.exe inserts `^` escapes).
     """
     path = f"{MEME_DIR}/{placeholder}"
     if _platform() == "windows":
-        return f'"{path}"'
+        return path
     return f"'{path}'"
 
 
