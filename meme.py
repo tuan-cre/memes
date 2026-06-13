@@ -113,6 +113,17 @@ def _chafa_size_flag() -> str:
     return "--size=${FZF_PREVIEW_COLUMNS}x$(( ${FZF_PREVIEW_LINES} - 2 )) "
 
 
+def _preview_path(placeholder: str = "{2}") -> str:
+    """Return MEME_DIR path with platform-appropriate quoting for fzf preview.
+
+    Unix: single quotes (shell strips them).
+    Windows: double quotes (cmd.exe treats single quotes as literals).
+    """
+    if _platform() == "windows":
+        return f'"{MEME_DIR}\\{placeholder}"'
+    return f"'{MEME_DIR}/{placeholder}'"
+
+
 def _debug(msg: str) -> None:
     """Print debug message to stderr when --debug is enabled."""
     if _DEBUG:
@@ -609,7 +620,7 @@ def cmd_pick() -> int:
         preview = (
             "chafa --symbols=block --fill=block --scale max --align=mid,mid "
             f"{size_flag}"
-            f"'{MEME_DIR}/" "{2}'"
+            f"{_preview_path()}"
         )
     else:
         preview = (f"cd '{MEME_DIR}' && echo {{2}} && file {{2}} && echo && "
@@ -631,7 +642,7 @@ def cmd_pick() -> int:
             "--color", color,
             "--height=100%",
             "--no-info",
-            "--bind", f"ctrl-p:execute(imv '{MEME_DIR}/" "{2}' 2>/dev/null)+abort",
+            "--bind", f"ctrl-p:execute(imv {_preview_path()} 2>/dev/null)+abort",
             "--bind", f"ctrl-d:execute({self_path} trash " "{2})+reload("
                       f"{self_path} _list-tsv)",
             "--bind", f"ctrl-r:execute({self_path} rename " "{2})+reload("
