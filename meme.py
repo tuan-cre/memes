@@ -106,10 +106,11 @@ def _notify(title: str, message: str, icon: Path | None = None) -> None:
 
 
 def _chafa_size_flag() -> str:
-    """Return chafa --size flag for fzf preview window. Omit on Windows
-    (cmd.exe can't expand $FZF_PREVIEW_COLUMNS bash syntax — chafa auto-detects)."""
+    """Return chafa --size flag for fzf preview window.
+    Unix:  bash syntax — $VAR + arithmetic expansion
+    Windows: cmd.exe syntax — %VAR% (no arithmetic available)"""
     if _platform() == "windows":
-        return ""
+        return "--size=%FZF_PREVIEW_COLUMNS%x%FZF_PREVIEW_LINES% "
     return "--size=${FZF_PREVIEW_COLUMNS}x$(( ${FZF_PREVIEW_LINES} - 2 )) "
 
 
