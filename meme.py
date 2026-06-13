@@ -142,6 +142,21 @@ def _copy_image(path: Path) -> bool:
             return _copy_image_pil(path)
 
     if platform == "windows":
+        try:
+            import win32clipboard  # type: ignore[import-untyped]
+            from io import BytesIO
+            from PIL import Image  # type: ignore[import-untyped]
+            win32clipboard.OpenClipboard()
+            try:
+                if win32clipboard.IsClipboardFormatAvailable(win32clipboard.CF_DIB):
+                    data = win32clipboard.GetClipboardData(win32clipboard.CF_DIB)
+                    img = Image.open(BytesIO(data))
+                    img.save(path, "PNG")
+                    return True
+            finally:
+                win32clipboard.CloseClipboard()
+        except Exception:
+            pass
         return _copy_image_pil(path)
 
     return False
@@ -150,11 +165,10 @@ def _copy_image(path: Path) -> bool:
 def _copy_image_pil(path: Path) -> bool:
     """Fallback clipboard copy using Pillow + platform libs."""
     try:
+        from io import BytesIO
         from PIL import Image as PILImage
         img = PILImage.open(path)
         img.save(BytesIO(), "PNG")  # validates the image
-        # On Windows we'd need win32clipboard here
-        # On macOS PIL can't set clipboard directly
         return False
     except Exception:
         return False

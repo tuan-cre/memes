@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "meme-collection"
-version = "3.5"
+version = "3.6"
 description = "Cross-platform meme collection manager — CLI, browser extension, screen capture"
 requires-python = ">=3.10"
 license = {text = "MIT"}
@@ -16,6 +16,7 @@ classifiers = [
 dependencies = [
     "Pillow>=10.0",
     "mss>=9.0",
+    'pywin32>=308; platform_system=="Windows"',
 ]
 
 [project."optional-dependencies"]
