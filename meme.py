@@ -106,11 +106,12 @@ def _notify(title: str, message: str, icon: Path | None = None) -> None:
 
 
 def _chafa_format_flag() -> str:
-    """Return chafa --format flag.
-    Windows: force symbols mode (fzf preview can't render sixel/kitty).
-    Unix: empty — auto-detect (sixel/kitty for high-res)."""
+    """Return platform-specific chafa flags before fill/scale/align.
+    Windows: force symbols mode + vhalf (fzf preview can't render sixel/kitty,
+    and Windows Terminal fonts lack quadrant glyphs).
+    Unix: empty — auto-detect sixel/kitty for pixel-perfect output."""
     if _platform() == "windows":
-        return "--format symbols "
+        return "--format symbols --symbols=vhalf "
     return ""
 
 
@@ -559,7 +560,7 @@ def cmd_pick() -> int:
                 f"cache='/tmp/meme-cache/{{2}}'; "
                 f"[ -f \"$cache\" ] || curl -s -o \"$cache\" "
                 f"'{server_url}/api/memes/'{{2}}; "
-                f"chafa {format_flag}--symbols=block --fill=block --scale max --align center "
+                f"chafa {format_flag}--fill=block --scale max --align center "
                 f"{size_flag}"
                 f"\"$cache\" 2>/dev/null; "
                 f"echo '  {{2}}'"
@@ -633,7 +634,7 @@ def cmd_pick() -> int:
         format_flag = _chafa_format_flag()
         size_flag = _chafa_size_flag()
         preview = (
-            f"chafa {format_flag}--symbols=block --fill=block --scale max --align center "
+            f"chafa {format_flag}--fill=block --scale max --align center "
             f"{size_flag}"
             f"{_preview_path()}"
         )
