@@ -549,7 +549,7 @@ def cmd_pick() -> int:
                 f"cache='/tmp/meme-cache/{{2}}'; "
                 f"[ -f \"$cache\" ] || curl -s -o \"$cache\" "
                 f"'{server_url}/api/memes/'{{2}}; "
-                f"chafa --symbols=block --fill=block --scale max --align=mid,mid "
+                f"chafa --format symbols --symbols=block --fill=block --scale max --align=mid,mid "
                 f"{size_flag}"
                 f"\"$cache\" 2>/dev/null; "
                 f"echo '  {{2}}'"
@@ -622,7 +622,7 @@ def cmd_pick() -> int:
     if _tool_available("chafa"):
         size_flag = _chafa_size_flag()
         preview = (
-            "chafa --symbols=block --fill=block --scale max --align=mid,mid "
+            "chafa --format symbols --symbols=block --fill=block --scale max --align=mid,mid "
             f"{size_flag}"
             f"{_preview_path()}"
         )
